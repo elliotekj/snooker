@@ -5,14 +5,14 @@ mod spam_phrases;
 
 use regex::{Regex, Captures};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Status {
     Valid,
     Moderate,
     Spam,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Comment {
     pub author: Option<String>,
     pub email: Option<String>,
@@ -187,14 +187,52 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_works() {
+    fn spam_1() {
+        // Author contains "https://" → -2
+        // Body contains 2 links → -2
+        // Body is over 20 chars with 2 links → +1
+        // Body starts with "Cool" → -10
+        // One of the body URLs has a spammy TLD → -1
+        //
+        // Expected: -14
+
         let comment = Comment {
             author: Some("https://elliotekj.com".to_string()),
             email: None,
             url: None,
-            body: String::from("<p>Cool, this <a href=\"https://elliotekjjjj-free.com\">comment</a> has more <a href=\"https://elliotekj.de\">than</a> 20 characters in it but <a href=\"https://elliotekj.com?some=paramsthatmakethismorethanthirty\">contains</a> 3 links.</p><p>For instant access!</p>"),
+            body: String::from("
+                <p>Cool, this <a href=\"https://elliotekj.com\">comment</a> has more <a\
+                href=\"https://elliotekj.de\">than</a> 20 characters in it but contains\
+                2 links.</p>
+            "),
         };
 
-        process_comment(comment);
+        let snooker_result = process_comment(comment);
+        assert_eq!(snooker_result.score, -14);
+        assert_eq!(snooker_result.status, Status::Spam);
+    }
+
+    #[test]
+    fn spam_2() {
+        // Body is over 20 chars and contains no links → +2
+        // Body has less than 2 links → +2
+        // Body contains 2 spam phrases → -2
+        // URL has "free" and one param in it → -2
+        // URL is over 30 characters → -1
+        //
+        // Expected: -1
+
+        let comment = Comment {
+            author: Some("Elliot Jackson".to_string()),
+            email: None,
+            url: Some("http://someexample.com?getit=free".to_string()),
+            body: String::from("
+                <p>Have you been turned down? Get our special promotion</p>
+            "),
+        };
+
+        let snooker_result = process_comment(comment);
+        assert_eq!(snooker_result.score, -1);
+        assert_eq!(snooker_result.status, Status::Spam);
     }
 }
