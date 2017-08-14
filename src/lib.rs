@@ -34,8 +34,6 @@ pub struct Snooker {
     pub comment: Comment,
 }
 
-
-
 lazy_static! {
     // Matches links, capturing the value in their `href`:
     static ref A_TAG_RE: Regex = Regex::new(r#"<a[^>]*href=["']((https?://)?([\da-zA-Z.-]+)\.([a-zA-Z]{2,10})[/]?([?]?[\S]*))["'][^>]*>"#).unwrap();
@@ -48,7 +46,7 @@ lazy_static! {
     static ref HTML_TAGS_RE: Regex = Regex::new(r#"<[^>]*>"#).unwrap();
 }
 
-static NAUGHTY_TLDS: [&str; 3] = ["de", "pl", "cn"];
+static SPAM_TLDS: [&str; 3] = ["de", "pl", "cn"];
 static URL_SPAM_WORDS: [&str; 5] = [".html", ".info", "?", "&", "free"];
 static BODY_SPAM_FIRST_WORDS: [&str; 4] = ["interesting", "sorry", "nice", "cool"];
 
@@ -216,12 +214,12 @@ fn process_single_link(c: Captures, snooker: &mut Snooker) {
 
     let tld = &c[4];
 
-    for naughty_tld in NAUGHTY_TLDS.iter() {
-        if &tld == naughty_tld {
+    for spam_tld in SPAM_TLDS.iter() {
+        if &tld == spam_tld {
             snooker.score -= 1;
 
             snooker.breakdown.push(Breakdown {
-                reason: format!("Single URL contains spammy TLD \"{}\"", naughty_tld),
+                reason: format!("Single URL contains spammy TLD \"{}\"", spam_tld),
                 weight: -1,
             });
 
@@ -317,7 +315,6 @@ mod tests {
         };
 
         let snooker_result = process_comment(comment);
-
         assert_eq!(snooker_result.score, -1);
         assert_eq!(snooker_result.status, Status::Spam);
     }
