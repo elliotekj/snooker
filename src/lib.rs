@@ -3,7 +3,7 @@ extern crate regex;
 
 mod spam_phrases;
 
-use regex::{Regex, Captures};
+use regex::Regex;
 
 #[derive(Debug)]
 pub enum Status {
@@ -127,6 +127,14 @@ impl Snooker {
             }
         }
     }
+
+    pub fn check_author_for_http(&mut self) {
+        if let Some(ref a) = self.comment.author {
+            if a.to_lowercase().contains("http://") || a.to_lowercase().contains("https://") {
+                self.score -= 2;
+            }
+        }
+    }
 }
 
 pub fn process_comment(comment: Comment) -> Snooker {
@@ -136,6 +144,7 @@ pub fn process_comment(comment: Comment) -> Snooker {
     snooker.check_body_length(link_count);
     snooker.check_body_for_spam_phrases();
     snooker.check_body_first_word();
+    snooker.check_author_for_http();
 
     println!("{}", snooker.score);
 
@@ -161,7 +170,7 @@ mod tests {
     #[test]
     fn it_works() {
         let comment = Comment {
-            author: None,
+            author: Some("https://elliotekj.com".to_string()),
             email: None,
             url: None,
             body: String::from("<p>Cool, this <a href=\"https://elliotekjjjj-free.com\">comment</a> has more <a href=\"https://elliotekj.de\">than</a> 20 characters in it but <a href=\"https://elliotekj.com?some=paramsthatmakethismorethanthirty\">contains</a> 3 links.</p><p>For instant access!</p>"),
