@@ -40,6 +40,7 @@ lazy_static! {
 
 static NAUGHTY_TLDS: [&str; 3] = ["de", "pl", "cn"];
 static URL_SPAM_WORDS: [&str; 5] = [".html", ".info", "?", "&", "free"];
+static BODY_SPAM_FIRST_WORDS: [&str; 4] = ["interesting", "sorry", "nice", "cool"];
 
 impl Snooker {
     pub fn new(comment: Comment) -> Self {
@@ -115,6 +116,17 @@ impl Snooker {
             }
         }
     }
+
+    pub fn check_body_first_word(&mut self) {
+        let stripped = HTML_TAGS_RE.replace_all(&self.comment.body, "");
+        let first_word = stripped.split_whitespace().next().unwrap().to_lowercase();
+
+        for w in BODY_SPAM_FIRST_WORDS.iter() {
+            if first_word.contains(w) {
+                self.score -= 10;
+            }
+        }
+    }
 }
 
 pub fn process_comment(comment: Comment) -> Snooker {
@@ -123,6 +135,7 @@ pub fn process_comment(comment: Comment) -> Snooker {
     let link_count = snooker.process_links();
     snooker.check_body_length(link_count);
     snooker.check_body_for_spam_phrases();
+    snooker.check_body_first_word();
 
     println!("{}", snooker.score);
 
@@ -151,7 +164,7 @@ mod tests {
             author: None,
             email: None,
             url: None,
-            body: String::from("<p>This <a href=\"https://elliotekjjjj-free.com\">comment</a> has more <a href=\"https://elliotekj.de\">than</a> 20 characters in it but <a href=\"https://elliotekj.com?some=paramsthatmakethismorethanthirty\">contains</a> 3 links.</p><p>For instant access!</p>"),
+            body: String::from("<p>Cool, this <a href=\"https://elliotekjjjj-free.com\">comment</a> has more <a href=\"https://elliotekj.de\">than</a> 20 characters in it but <a href=\"https://elliotekj.com?some=paramsthatmakethismorethanthirty\">contains</a> 3 links.</p><p>For instant access!</p>"),
         };
 
         process_comment(comment);
