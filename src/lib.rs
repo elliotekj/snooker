@@ -27,8 +27,10 @@ pub struct Snooker {
 
 lazy_static! {
     // Matches links, capturing the value in their `href`:
-    static ref LINK_RE: Regex = Regex::new(r#"<a[^>]*href=["']([^\s"'>]+)["'][^>]*>"#).unwrap();
+    static ref LINK_RE: Regex = Regex::new(r#"<a[^>]*href=["'](https?://)?([\da-zA-Z.-]+)\.([a-z.]{2,6})["'][^>]*>"#).unwrap();
 }
+
+static NAUGHTY_TLDS: [&str; 3] = ["de", "pl", "cn"];
 
 impl Snooker {
     pub fn new(comment: Comment) -> Self {
@@ -43,7 +45,18 @@ impl Snooker {
         let mut link_count = 0;
 
         for c in LINK_RE.captures_iter(&self.comment.body) {
+            // Count the number of links
             link_count += 1;
+
+            // Check for certain TLDs
+
+            let tld = &c[3];
+
+            for naughty_tld in NAUGHTY_TLDS.iter() {
+                if &tld == naughty_tld {
+                    self.score -= 1;
+                }
+            }
         }
 
         if link_count <= 2 {
@@ -51,6 +64,8 @@ impl Snooker {
         } else {
             self.score -= link_count;
         }
+
+        println!("{}", self.score);
     }
 }
 
@@ -73,7 +88,7 @@ mod tests {
             email: None,
             url: None,
             body: String::from("<p>This <a href=\"https://elliotekj.com\">comment</a> \
-            has more <a href=\"https://elliotekj.com\">than</a> 20 characters in \
+            has more <a href=\"https://elliotekj.de\">than</a> 20 characters in \
             it but <a href=\"https://elliotekj.com\">contains</a> 3 links.</p>"),
         };
 
