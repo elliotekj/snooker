@@ -1,6 +1,8 @@
 #[macro_use] extern crate lazy_static;
 extern crate regex;
 
+mod spam_phrases;
+
 use regex::{Regex, Captures};
 
 #[derive(Debug)]
@@ -105,6 +107,14 @@ impl Snooker {
             self.score -= 1;
         }
     }
+
+    pub fn check_body_for_spam_phrases(&mut self) {
+        for p in spam_phrases::SPAM_PHRASES.iter() {
+            if self.comment.body.contains(p) {
+                self.score -= 1;
+            }
+        }
+    }
 }
 
 pub fn process_comment(comment: Comment) -> Snooker {
@@ -112,6 +122,7 @@ pub fn process_comment(comment: Comment) -> Snooker {
 
     let link_count = snooker.process_links();
     snooker.check_body_length(link_count);
+    snooker.check_body_for_spam_phrases();
 
     println!("{}", snooker.score);
 
@@ -140,7 +151,7 @@ mod tests {
             author: None,
             email: None,
             url: None,
-            body: String::from("<p>This <a href=\"https://elliotekjjjj-free.com\">comment</a> has more <a href=\"https://elliotekj.de\">than</a> 20 characters in it but <a href=\"https://elliotekj.com?some=paramsthatmakethismorethanthirty\">contains</a> 3 links.</p>"),
+            body: String::from("<p>This <a href=\"https://elliotekjjjj-free.com\">comment</a> has more <a href=\"https://elliotekj.de\">than</a> 20 characters in it but <a href=\"https://elliotekj.com?some=paramsthatmakethismorethanthirty\">contains</a> 3 links.</p><p>For instant access!</p>"),
         };
 
         process_comment(comment);
