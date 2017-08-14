@@ -15,7 +15,8 @@ pub enum Status {
 #[derive(Debug, Clone)]
 pub struct Comment {
     pub author: Option<String>,
-    pub email: Option<String>,
+    pub previously_accepted_for_email: Option<isize>,
+    pub previously_rejected_for_email: Option<isize>,
     pub url: Option<String>,
     pub body: String,
 }
@@ -28,7 +29,7 @@ pub struct Breakdown {
 
 #[derive(Debug, Clone)]
 pub struct Snooker {
-    pub score: i8,
+    pub score: isize,
     pub status: Status,
     pub breakdown: Vec<Breakdown>,
     pub comment: Comment,
@@ -61,7 +62,7 @@ impl Snooker {
     }
 
     pub fn check_body_links(&mut self) -> i8 {
-        let mut link_count = 0;
+        let mut link_count: i8 = 0;
         let body_clone = self.comment.body.clone();
 
         for c in A_TAG_RE.captures_iter(&body_clone) {
@@ -79,7 +80,7 @@ impl Snooker {
                 weight: 2,
             });
         } else {
-            self.score -= link_count;
+            self.score -= link_count as isize;
 
             self.breakdown.push(Breakdown {
                 reason: "Body contains 2 or more links".to_string(),
@@ -129,7 +130,7 @@ impl Snooker {
     }
 
     pub fn check_body_for_spam_phrases(&mut self) {
-        let mut spam_phrase_count = 0;
+        let mut spam_phrase_count: i8 = 0;
 
         for p in spam_phrases::SPAM_PHRASES.iter() {
             if self.comment.body.to_lowercase().contains(p) {
@@ -137,7 +138,7 @@ impl Snooker {
             }
         }
 
-        self.score -= spam_phrase_count;
+        self.score -= spam_phrase_count as isize;
 
         self.breakdown.push(Breakdown {
             reason: format!("Body contains {} spam phrases", spam_phrase_count),
@@ -174,6 +175,16 @@ impl Snooker {
             }
         }
     }
+
+    pub fn count_emails_previous_statuses(&mut self) {
+        if let Some(c) = self.comment.previously_accepted_for_email {
+            self.score += c;
+        }
+
+        if let Some(c) = self.comment.previously_rejected_for_email {
+            self.score -= c;
+        }
+    }
 }
 
 pub fn process_comment(comment: Comment) -> Snooker {
@@ -185,6 +196,7 @@ pub fn process_comment(comment: Comment) -> Snooker {
     snooker.check_body_first_word();
     snooker.check_url();
     snooker.check_author_for_http();
+    snooker.count_emails_previous_statuses();
 
     if snooker.score >= 1 {
         snooker.status = Status::Valid;
@@ -216,7 +228,7 @@ fn process_single_link(c: Captures, snooker: &mut Snooker) {
 
     for spam_tld in SPAM_TLDS.iter() {
         if &tld == spam_tld {
-            snooker.score -= 1;
+            snooker.score -= 1 as isize;
 
             snooker.breakdown.push(Breakdown {
                 reason: format!("Single URL contains spammy TLD \"{}\"", spam_tld),
@@ -233,7 +245,7 @@ fn process_single_link(c: Captures, snooker: &mut Snooker) {
 
     for word in URL_SPAM_WORDS.iter() {
         if url.to_lowercase().contains(word) {
-            snooker.score -= 1;
+            snooker.score -= 1 as isize;
 
             snooker.breakdown.push(Breakdown {
                 reason: format!("Single URL contains spam word \"{}\"", word),
@@ -244,7 +256,7 @@ fn process_single_link(c: Captures, snooker: &mut Snooker) {
 
     // Check the length of the URL:
     if url.len() > 30 {
-        snooker.score -= 1;
+        snooker.score -= 1 as isize;
 
         snooker.breakdown.push(Breakdown {
             reason: "Single URL is over 30 chars".to_string(),
@@ -255,7 +267,7 @@ fn process_single_link(c: Captures, snooker: &mut Snooker) {
     // Check for 5 consonants or more in a row:
     let consonant_count = count_consonant_collections(url) as i8;
 
-    snooker.score -= consonant_count;
+    snooker.score -= consonant_count as isize;
 
     if consonant_count > 0 {
         snooker.breakdown.push(Breakdown {
@@ -281,7 +293,8 @@ mod tests {
 
         let comment = Comment {
             author: Some("https://elliotekj.com".to_string()),
-            email: None,
+            previously_accepted_for_email: None,
+            previously_rejected_for_email: None,
             url: None,
             body: String::from("
                 <p>Cool, this <a href=\"https://elliotekj.com\">comment</a> has more <a\
@@ -307,7 +320,8 @@ mod tests {
 
         let comment = Comment {
             author: Some("Elliot Jackson".to_string()),
-            email: None,
+            previously_accepted_for_email: None,
+            previously_rejected_for_email: None,
             url: Some("http://someexample.com?getit=free".to_string()),
             body: String::from("
                 <p>Have you been turned down? Get our special promotion</p>
