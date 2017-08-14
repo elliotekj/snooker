@@ -1,9 +1,67 @@
+//! This crate provides a pure Rust implementation of Jonathan Snook's [spam detection
+//! algorithm](https://snook.ca/archives/other/effective_blog_comment_spam_blocker) for blog
+//! comments.
+//!
+//! As described in the afore-linked post, it works on a points system. Points are awarded and
+//! deducted based on a variety of rules. If a comments final score is greater than or equal to
+//! 1, the comment is considered valid. If the comments final score is 0 then it's considered
+//! to be worth of moderating. If the comments final score is below 0 then it's considered to be
+//! spam.
+//!
+//! ## Installation
+//!
+//! If you're using Cargo, just add Snooker to your `Cargo.toml`:
+//!
+//! ```toml,no_run
+//! [dependencies]
+//! snooker = "0.1.0"
+//! ```
+//!
+//! ## Example
+//!
+//! Snooker gives the example comment below a score of **-10** based off of the following patterns it
+//! caught:
+//!
+//! - The `body` has less that 2 links in it: **+2 points**
+//! - The `body` is more that 20 characters long but contains 1 link: **+1 point**
+//! - The link in the `body` contains one keyword considered spammy ("free"): **-1 point**
+//! - The `body` contains one phrase considered spammy ("limited time only"): **-1 point**
+//! - The `body` starts with a word considered spammy when it's the first word of the comment
+//! ("nice"): **-10 points**
+//! - The `author` field doesn't contain `http://` or `https://`: **+0 points** (unchanged)
+//! - The `url` field contains a keyword considered spammy ("free"): **-1 point**
+//! - None of the URLs use a TLD considered spammy: **+0 points** (unchanged)
+//! - None of the URLs are longer that 30 characters: **+0 points** (unchanged)
+//! - No consonant groups were found: **+0 points** (unchanged)
+//! - No data was provided about the comments previously submitted with this email address: **+0
+//! points** (unchanged)
+//!
+//! ```rust
+//! let comment = snooker::Comment {
+//!     author: Some("Johnny B. Goode".to_string()),
+//!     url: Some("http://my-free-ebook.com".to_string()),
+//!     body: String::from("
+//!         <p>Nice post! Check out our free (for a limited time only) eBook
+//!         <a href=\"http://my-free-ebook.com\">here</a> that's totally relevant</p>
+//!     "),
+//!     previously_accepted_for_email: None,
+//!     previously_rejected_for_email: None,
+//!     previous_comment_bodies: None,
+//! };
+//!
+//! let snooker_result = snooker::process_comment(comment);
+//! assert_eq!(snooker_result.score, -10);
+//! assert_eq!(snooker_result.status, snooker::Status::Spam);
+//! ```
+
 #[macro_use] extern crate lazy_static;
 extern crate regex;
 
 mod spam_phrases;
 
 use regex::{Regex, Captures};
+
+/// The status Snooker assigns to a comment.
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Status {
@@ -12,20 +70,53 @@ pub enum Status {
     Spam,
 }
 
+/// Snooker's representation of a comment.
+///
+/// The only field that's required is `body`; it's recommended that you provide the `author` and
+/// `url` fields as well though. If the results aren't accurate enough for you with just those
+/// 3 fields, then you can provide the data you have about this users other comment submissions.
+
 #[derive(Debug, Clone)]
 pub struct Comment {
+    /// The name the user provided when submitting the comment.
     pub author: Option<String>,
+
+    /// The URL the user provided when submitting the comment.
     pub url: Option<String>,
+
+    /// The body of the comment the user submitted. Snooker's parser expects the contents of this
+    /// `String` to be unescaped HTML.
     pub body: String,
+
+    /// The number of comments Snooker has previously accepted from this email address. Note: Snooker does
+    /// not store any data about the comments it processes. If you want to use this feature, you'll
+    /// need to keep your own database.
     pub previously_accepted_for_email: Option<isize>,
+
+    /// The number of comments Snooker has previously rejected from this email address. Note: Snooker does
+    /// not store any data about the comments it processes. If you want to use this feature, you'll
+    /// need to keep your own database.
     pub previously_rejected_for_email: Option<isize>,
+
+    /// The bodies of the comments previously submitted with this email address. Note: Snooker does
+    /// not store any data about the comments it processes. If you want to use this feature, you'll
+    /// need to keep your own database.
     pub previous_comment_bodies: Option<Vec<String>>,
 }
 
+/// The struct returned by Snooker.
+
 #[derive(Debug, Clone)]
 pub struct Snooker {
+    /// The final score the passed comment was given.
     pub score: isize,
+
+    /// The status assigned to this comment based off of its `score`. If the score was greater than
+    /// or equal to 1, the status is `Status::Valid`. If the score is 0, the status is
+    /// `Status::Moderate`. If score is below 0, the status is `Status::Spam`.
     pub status: Status,
+
+    /// The original comment struct passed to Snooker.
     pub comment: Comment,
 }
 
@@ -45,6 +136,7 @@ static SPAM_TLDS: [&str; 3] = ["de", "pl", "cn"];
 static URL_SPAM_WORDS: [&str; 5] = [".html", ".info", "?", "&", "free"];
 static BODY_SPAM_FIRST_WORDS: [&str; 4] = ["interesting", "sorry", "nice", "cool"];
 
+#[doc(hidden)]
 impl Snooker {
     pub fn new(comment: Comment) -> Self {
         Snooker {
@@ -153,6 +245,8 @@ impl Snooker {
     }
 }
 
+/// Snooker's entry point.
+
 pub fn process_comment(comment: Comment) -> Snooker {
     let mut snooker = Snooker::new(comment);
 
@@ -176,6 +270,7 @@ pub fn process_comment(comment: Comment) -> Snooker {
     snooker
 }
 
+#[doc(hidden)]
 pub fn count_consonant_collections(s: &str) -> u8 {
     let mut count = 0;
 
@@ -188,6 +283,7 @@ pub fn count_consonant_collections(s: &str) -> u8 {
     count
 }
 
+#[doc(hidden)]
 fn process_single_link(c: Captures, snooker: &mut Snooker) {
     // Check for certain TLDs
 
