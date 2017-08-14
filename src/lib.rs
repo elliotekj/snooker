@@ -72,7 +72,7 @@ impl Snooker {
             let url = &c[1];
 
             for word in URL_SPAM_WORDS.iter() {
-                if url.contains(word) {
+                if url.to_lowercase().contains(word) {
                     self.score -= 1;
                 }
             }
@@ -110,7 +110,7 @@ impl Snooker {
 
     pub fn check_body_for_spam_phrases(&mut self) {
         for p in spam_phrases::SPAM_PHRASES.iter() {
-            if self.comment.body.contains(p) {
+            if self.comment.body.to_lowercase().contains(p) {
                 self.score -= 1;
             }
         }
