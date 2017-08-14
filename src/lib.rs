@@ -31,6 +31,9 @@ lazy_static! {
 
     // Matches 5 or more consonants in a row:
     static ref CONSONANTS_RE: Regex = Regex::new(r#"(?i)[b-z&&[^eiou]]{5,}"#).unwrap();
+
+    // Matches all HTML tags:
+    static ref HTML_TAGS_RE: Regex = Regex::new(r#"<[^>]*>"#).unwrap();
 }
 
 static NAUGHTY_TLDS: [&str; 3] = ["de", "pl", "cn"];
@@ -45,12 +48,10 @@ impl Snooker {
         }
     }
 
-    pub fn process_links(&mut self) {
+    pub fn process_links(&mut self) -> i8 {
         let mut link_count = 0;
 
         for c in LINK_RE.captures_iter(&self.comment.body) {
-            println!("{:?}", c);
-
             // Count the number of links
             link_count += 1;
 
@@ -89,14 +90,30 @@ impl Snooker {
             self.score -= link_count;
         }
 
-        println!("{}", self.score);
+        link_count
+    }
+
+    pub fn check_body_length(&mut self, link_count: i8) {
+        let stripped = HTML_TAGS_RE.replace_all(&self.comment.body, "");
+        let trimmed_len = stripped.trim().len();
+
+        if trimmed_len > 20 && link_count == 0 {
+            self.score += 2;
+        } else if trimmed_len > 20 {
+            self.score += 1;
+        } else {
+            self.score -= 1;
+        }
     }
 }
 
 pub fn process_comment(comment: Comment) -> Snooker {
     let mut snooker = Snooker::new(comment);
 
-    snooker.process_links();
+    let link_count = snooker.process_links();
+    snooker.check_body_length(link_count);
+
+    println!("{}", snooker.score);
 
     snooker
 }
