@@ -70,6 +70,11 @@ impl Snooker {
                     self.score -= 1;
                 }
             }
+
+            // Check the length of the URL:
+            if url.len() > 30 {
+                self.score -= 1;
+            }
         }
 
         if link_count <= 2 {
@@ -100,9 +105,7 @@ mod tests {
             author: None,
             email: None,
             url: None,
-            body: String::from("<p>This <a href=\"https://elliotekj-free.com\">comment</a> \
-            has more <a href=\"https://elliotekj.de\">than</a> 20 characters in \
-            it but <a href=\"https://elliotekj.com?some=param\">contains</a> 3 links.</p>"),
+            body: String::from("<p>This <a href=\"https://elliotekj-free.com\">comment</a> has more <a href=\"https://elliotekj.de\">than</a> 20 characters in it but <a href=\"https://elliotekj.com?some=paramsthatmakethismorethanthirty\">contains</a> 3 links.</p>"),
         };
 
         process_comment(comment);
