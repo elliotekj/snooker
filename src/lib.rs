@@ -28,6 +28,9 @@ pub struct Snooker {
 lazy_static! {
     // Matches links, capturing the value in their `href`:
     static ref LINK_RE: Regex = Regex::new(r#"<a[^>]*href=["']((https?://)?([\da-zA-Z.-]+)\.([a-zA-Z]{2,10})[/]?([?]?[\S]*))["'][^>]*>"#).unwrap();
+
+    // Matches 5 or more consonants in a row:
+    static ref CONSONANTS_RE: Regex = Regex::new(r#"(?i)[b-z&&[^eiou]]{5,}"#).unwrap();
 }
 
 static NAUGHTY_TLDS: [&str; 3] = ["de", "pl", "cn"];
@@ -75,6 +78,9 @@ impl Snooker {
             if url.len() > 30 {
                 self.score -= 1;
             }
+
+            // Check for 5 consonants or more in a row:
+            self.score -= count_consonants(url) as i8;
         }
 
         if link_count <= 2 {
@@ -95,6 +101,18 @@ pub fn process_comment(comment: Comment) -> Snooker {
     snooker
 }
 
+pub fn count_consonants(s: &str) -> u8 {
+    let mut count = 0;
+
+    for c in CONSONANTS_RE.captures_iter(s) {
+        if &c[0] != "http" && &c[0] != "https" {
+            count += 1;
+        }
+    }
+
+    count
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -105,7 +123,7 @@ mod tests {
             author: None,
             email: None,
             url: None,
-            body: String::from("<p>This <a href=\"https://elliotekj-free.com\">comment</a> has more <a href=\"https://elliotekj.de\">than</a> 20 characters in it but <a href=\"https://elliotekj.com?some=paramsthatmakethismorethanthirty\">contains</a> 3 links.</p>"),
+            body: String::from("<p>This <a href=\"https://elliotekjjjj-free.com\">comment</a> has more <a href=\"https://elliotekj.de\">than</a> 20 characters in it but <a href=\"https://elliotekj.com?some=paramsthatmakethismorethanthirty\">contains</a> 3 links.</p>"),
         };
 
         process_comment(comment);
