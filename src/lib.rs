@@ -15,10 +15,11 @@ pub enum Status {
 #[derive(Debug, Clone)]
 pub struct Comment {
     pub author: Option<String>,
-    pub previously_accepted_for_email: Option<isize>,
-    pub previously_rejected_for_email: Option<isize>,
     pub url: Option<String>,
     pub body: String,
+    pub previously_accepted_for_email: Option<isize>,
+    pub previously_rejected_for_email: Option<isize>,
+    pub previous_comment_bodies: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone)]
@@ -163,6 +164,20 @@ impl Snooker {
 
     }
 
+    pub fn check_body_of_previous_for_matches(&mut self) {
+        if let Some(ref previous_comments) = self.comment.previous_comment_bodies {
+            let lowercase_body = self.comment.body.trim().to_lowercase();
+
+            for pc in previous_comments {
+                let lowercase_pc = pc.trim().to_lowercase();
+
+                if lowercase_pc == lowercase_body {
+                    self.score -= 1;
+                }
+            }
+        }
+    }
+
     pub fn check_author_for_http(&mut self) {
         if let Some(ref a) = self.comment.author {
             if a.to_lowercase().contains("http://") || a.to_lowercase().contains("https://") {
@@ -194,6 +209,7 @@ pub fn process_comment(comment: Comment) -> Snooker {
     snooker.check_body_length(link_count);
     snooker.check_body_for_spam_phrases();
     snooker.check_body_first_word();
+    snooker.check_body_of_previous_for_matches();
     snooker.check_url();
     snooker.check_author_for_http();
     snooker.count_emails_previous_statuses();
@@ -293,14 +309,15 @@ mod tests {
 
         let comment = Comment {
             author: Some("https://elliotekj.com".to_string()),
-            previously_accepted_for_email: None,
-            previously_rejected_for_email: None,
             url: None,
             body: String::from("
                 <p>Cool, this <a href=\"https://elliotekj.com\">comment</a> has more <a\
                 href=\"https://elliotekj.de\">than</a> 20 characters in it but contains\
                 2 links.</p>
             "),
+            previously_accepted_for_email: None,
+            previously_rejected_for_email: None,
+            previous_comment_bodies: None,
         };
 
         let snooker_result = process_comment(comment);
@@ -315,21 +332,32 @@ mod tests {
         // Body contains 2 spam phrases → -2
         // URL has "free" and one param in it → -2
         // URL is over 30 characters → -1
+        // 2 previous comments by this email address have the same body → -2
         //
-        // Expected: -1
+        // Expected: -3
+
+        let previous_comment_bodies = vec![
+            String::from("
+                <p>Have you been turned down? Get our special promotion</p>
+            "),
+            String::from("
+                <p>Have you been turned down? Get our special promotion</p>
+            "),
+        ];
 
         let comment = Comment {
             author: Some("Elliot Jackson".to_string()),
-            previously_accepted_for_email: None,
-            previously_rejected_for_email: None,
             url: Some("http://someexample.com?getit=free".to_string()),
             body: String::from("
                 <p>Have you been turned down? Get our special promotion</p>
             "),
+            previously_accepted_for_email: None,
+            previously_rejected_for_email: None,
+            previous_comment_bodies: Some(previous_comment_bodies),
         };
 
         let snooker_result = process_comment(comment);
-        assert_eq!(snooker_result.score, -1);
+        assert_eq!(snooker_result.score, -3);
         assert_eq!(snooker_result.status, Status::Spam);
     }
 }
