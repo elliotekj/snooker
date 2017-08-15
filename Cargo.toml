@@ -1,7 +1,15 @@
 [package]
 name = "snooker"
+description = "Snooker is a pure-Rust implementation of Jonathan Snook's spam detection algorithm for blog comments"
 version = "0.1.0"
 authors = ["Elliot Jackson <elliotekj@gmail.com>"]
+documentation = "https://docs.rs/snooker"
+homepage = "https://github.com/elliotekj/snooker"
+repository = "https://github.com/elliotekj/snooker"
+readme = "README.md"
+keywords = ["spam", "detection", "blog", "algorithm"]
+categories = ["algorithms", "text-processing"]
+license = "MIT"
 
 [dependencies]
 lazy_static = "0.2.8"
