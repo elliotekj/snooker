@@ -6,7 +6,7 @@
 //! deducted based on a variety of rules. If a comments final score is greater than or equal to
 //! 1, the comment is considered valid. If the comments final score is 0 then it's considered
 //! to be worth of moderating. If the comments final score is below 0 then it's considered to be
-//! spam.
+//! spam. Each comment starts with a score of 0.
 //!
 //! ## Installation
 //!
@@ -19,8 +19,7 @@
 //!
 //! ## Example
 //!
-//! Snooker gives the example comment below a score of **-10** based off of the following patterns it
-//! caught:
+//! Snooker gives the example comment below a score of **-10** based off of the following patterns:
 //!
 //! - The `body` has less that 2 links in it: **+2 points**
 //! - The `body` is more that 20 characters long but contains 1 link: **+1 point**
@@ -74,9 +73,11 @@ pub enum Status {
 
 /// Snooker's representation of a comment.
 ///
-/// The only field that's required is `body`; it's recommended that you provide the `author` and
-/// `url` fields as well though. If the results aren't accurate enough for you with just those
-/// 3 fields, then you can provide the data you have about this users other comment submissions.
+/// `body` is the only field that's required. It is highly recommended that you provide the
+/// `author` and `url` fields too.
+///
+/// If you wan't to go the whole hog, you can provide data about the comments previously submitted
+/// with this email address.
 
 #[derive(Debug, Clone)]
 pub struct Comment {
@@ -86,18 +87,17 @@ pub struct Comment {
     /// The URL the user provided when submitting the comment.
     pub url: Option<String>,
 
-    /// The body of the comment the user submitted. Snooker's parser expects the contents of this
-    /// `String` to be unescaped HTML.
+    /// The body of the comment the user submitted.
     pub body: String,
 
-    /// The number of comments Snooker has previously accepted from this email address. Note: Snooker does
-    /// not store any data about the comments it processes. If you want to use this feature, you'll
-    /// need to keep your own database.
+    /// The number of comments from this email address that Snooker has previously deemed valid.
+    /// Note: Snooker does not store any data about the comments it processes. If you want to use
+    /// this feature, you'll need to keep your own database.
     pub previously_accepted_for_email: Option<isize>,
 
-    /// The number of comments Snooker has previously rejected from this email address. Note: Snooker does
-    /// not store any data about the comments it processes. If you want to use this feature, you'll
-    /// need to keep your own database.
+    /// The number of comments from this email address that Snooker has previously deemed spam.
+    /// Note: Snooker does not store any data about the comments it processes. If you want to use
+    /// this feature, you'll need to keep your own database.
     pub previously_rejected_for_email: Option<isize>,
 
     /// The bodies of the comments previously submitted with this email address. Note: Snooker does
@@ -106,7 +106,7 @@ pub struct Comment {
     pub previous_comment_bodies: Option<Vec<String>>,
 }
 
-/// The struct returned by Snooker.
+/// The struct returned by `Snooker::new` when it has finished processing a comment.
 
 #[derive(Debug, Clone)]
 pub struct Snooker {
