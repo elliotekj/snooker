@@ -1,4 +1,4 @@
-//! This crate provides a pure Rust implementation of Jonathan Snook's [spam detection
+//! This crate provides a pure-Rust implementation of Jonathan Snook's [spam detection
 //! algorithm](https://snook.ca/archives/other/effective_blog_comment_spam_blocker) for blog
 //! comments.
 //!
@@ -37,7 +37,9 @@
 //! points** (unchanged)
 //!
 //! ```rust
-//! let comment = snooker::Comment {
+//! use snooker::{Comment, Snooker, Status};
+//!
+//! let comment = Comment {
 //!     author: Some("Johnny B. Goode".to_string()),
 //!     url: Some("http://my-free-ebook.com".to_string()),
 //!     body: String::from("
@@ -49,9 +51,9 @@
 //!     previous_comment_bodies: None,
 //! };
 //!
-//! let snooker_result = snooker::process_comment(comment);
+//! let snooker_result = Snooker::new(comment);
 //! assert_eq!(snooker_result.score, -10);
-//! assert_eq!(snooker_result.status, snooker::Status::Spam);
+//! assert_eq!(snooker_result.status, Status::Spam);
 //! ```
 
 #[macro_use] extern crate lazy_static;
@@ -139,11 +141,30 @@ static BODY_SPAM_FIRST_WORDS: [&str; 4] = ["interesting", "sorry", "nice", "cool
 #[doc(hidden)]
 impl Snooker {
     pub fn new(comment: Comment) -> Self {
-        Snooker {
+        let mut snooker = Snooker {
             score: 0,
             status: Status::Moderate,
             comment: comment,
+        };
+
+        let link_count = snooker.check_body_links();
+        snooker.check_body_length(link_count);
+        snooker.check_body_for_spam_phrases();
+        snooker.check_body_first_word();
+        snooker.check_body_of_previous_for_matches();
+        snooker.check_url();
+        snooker.check_author_for_http();
+        snooker.count_emails_previous_statuses();
+
+        if snooker.score >= 1 {
+            snooker.status = Status::Valid;
+        } else if snooker.score == 0 {
+            snooker.status = Status::Moderate;
+        } else {
+            snooker.status = Status::Spam;
         }
+
+        snooker
     }
 
     pub fn check_body_links(&mut self) -> i8 {
@@ -245,31 +266,6 @@ impl Snooker {
     }
 }
 
-/// Snooker's entry point.
-
-pub fn process_comment(comment: Comment) -> Snooker {
-    let mut snooker = Snooker::new(comment);
-
-    let link_count = snooker.check_body_links();
-    snooker.check_body_length(link_count);
-    snooker.check_body_for_spam_phrases();
-    snooker.check_body_first_word();
-    snooker.check_body_of_previous_for_matches();
-    snooker.check_url();
-    snooker.check_author_for_http();
-    snooker.count_emails_previous_statuses();
-
-    if snooker.score >= 1 {
-        snooker.status = Status::Valid;
-    } else if snooker.score == 0 {
-        snooker.status = Status::Moderate;
-    } else {
-        snooker.status = Status::Spam;
-    }
-
-    snooker
-}
-
 #[doc(hidden)]
 pub fn count_consonant_collections(s: &str) -> u8 {
     let mut count = 0;
@@ -343,7 +339,7 @@ mod tests {
             previous_comment_bodies: None,
         };
 
-        let snooker_result = process_comment(comment);
+        let snooker_result = Snooker::new(comment);
         assert_eq!(snooker_result.score, -14);
         assert_eq!(snooker_result.status, Status::Spam);
     }
@@ -379,7 +375,7 @@ mod tests {
             previous_comment_bodies: Some(previous_comment_bodies),
         };
 
-        let snooker_result = process_comment(comment);
+        let snooker_result = Snooker::new(comment);
         assert_eq!(snooker_result.score, -3);
         assert_eq!(snooker_result.status, Status::Spam);
     }
